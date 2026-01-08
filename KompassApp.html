@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kompass zur Zielkoordinate</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    h1 { margin-bottom: 0.5rem; }
+    #compass {
+      width: 260px;
+      height: 260px;
+      border: 4px solid #e5e7eb;
+      border-radius: 50%;
+      position: relative;
+      margin: 1.5rem 0;
+    }
+    #arrow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 90px solid #22c55e;
+      transform-origin: 50% 100%;
+      transform: translate(-50%, -100%) rotate(0deg);
+    }
+    .info {
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+    }
+    .hint {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-top: 1rem;
+      text-align: center;
+      max-width: 320px;
+    }
+    button {
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      border: none;
+      cursor: pointer;
+      background: #22c55e;
+      color: #052e16;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧭 Basti‑Kompass</h1>
+  <div id="compass">
+    <div id="arrow"></div>
+  </div>
+
+  <div class="info" id="distance">Distanz: –</div>
+  <div class="info" id="bearing">Richtung: –</div>
+
+  <button id="startBtn">Sensoren aktivieren</button>
+
+  <div class="hint">
+    Hinweis: Diese Seite benötigt Zugriff auf Standort und Bewegungssensoren
+    (funktioniert am besten auf Smartphones über HTTPS).
+  </div>
+
+  <script>
+    // ==============================
+    // ZIELKOORDINATE (HIER ANPASSEN)
+    // ==============================
+    const TARGET_LAT = 62.5200; // z.B. Berlin
+    const TARGET_LON = 13.4050;
+
+    let currentHeading = 0; // Geräteausrichtung
+    let currentPosition = null;
+
+    const arrow = document.getElementById('arrow');
+    const distanceEl = document.getElementById('distance');
+    const bearingEl = document.getElementById('bearing');
+    const startBtn = document.getElementById('startBtn');
+
+    function toRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function toDeg(rad) {
+      return rad * 180 / Math.PI;
+    }
+
+    // Haversine‑Distanz in Metern
+    function distance(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon/2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Peilung (Bearing) von Punkt A nach B
+    function bearing(lat1, lon1, lat2, lon2) {
+      const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function updateCompass() {
+      if (!currentPosition) return;
+
+      const brg = bearing(
+        currentPosition.latitude,
+        currentPosition.longitude,
+        TARGET_LAT,
+        TARGET_LON
+      );
+
+      const dist = distance(
+        currentPosition.latitude,
+        currentPosition.longitude,
+        TARGET_LAT,
+        TARGET_LON
+      );
+
+      const rotation = brg - currentHeading;
+      arrow.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
+
+      distanceEl.textContent = `Distanz: ${(dist / 1000).toFixed(2)} km`;
+      bearingEl.textContent = `Richtung: ${brg.toFixed(0)}°`;
+    }
+
+    function startGeolocation() {
+      if (!navigator.geolocation) {
+        alert('Geolocation wird nicht unterstützt.');
+        return;
+      }
+
+      navigator.geolocation.watchPosition(
+        pos => {
+          currentPosition = pos.coords;
+          updateCompass();
+        },
+        err => alert('Standortfehler: ' + err.message),
+        { enableHighAccuracy: true }
+      );
+    }
+
+    function startOrientation() {
+      function handler(event) {
+        if (event.absolute && event.alpha !== null) {
+          currentHeading = 360 - event.alpha;
+        } else if (event.webkitCompassHeading !== undefined) {
+          currentHeading = event.webkitCompassHeading;
+        }
+        updateCompass();
+      }
+
+      window.addEventListener('deviceorientationabsolute', handler, true);
+      window.addEventListener('deviceorientation', handler, true);
+    }
+
+    startBtn.addEventListener('click', async () => {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission !== 'granted') {
+          alert('Bewegungssensor nicht erlaubt.');
+          return;
+        }
+      }
+      startBtn.style.display = 'none';
+      startGeolocation();
+      startOrientation();
+    });
+  </script>
+</body>
+</html>
