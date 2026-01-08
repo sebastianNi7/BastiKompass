@@ -78,8 +78,8 @@
     // ==============================
     // ZIELKOORDINATE (HIER ANPASSEN)
     // ==============================
-    const TARGET_LAT = 62.5200; // z.B. Berlin
-    const TARGET_LON = 13.4050;
+    const TARGET_LAT = 52.275149637348015; // z.B. Wendenring 35: 52.275149637348015, 10.517943736056074
+    const TARGET_LON = 10.517943736056074;
 
     let currentHeading = 0; // Geräteausrichtung
     let currentPosition = null;
@@ -137,7 +137,7 @@
       const rotation = brg - currentHeading;
       arrow.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
 
-      distanceEl.textContent = `Distanz: ${(dist / 1000).toFixed(2)} km`;
+      distanceEl.textContent = `Distanz: ${(dist / 1000).toFixed(3)} km`;
       bearingEl.textContent = `Richtung: ${brg.toFixed(0)}°`;
     }
 
@@ -187,3 +187,4 @@
   </script>
 </body>
 </html>
+
